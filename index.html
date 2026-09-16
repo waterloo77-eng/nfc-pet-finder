@@ -80,6 +80,7 @@
   .field { text-align: left; margin-top: 14px; }
   .field label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
   .field .optional { font-weight: 400; color: var(--muted); }
+  .field .hint { font-weight: 400; color: var(--muted); font-size: 0.78rem; margin-top: 3px; }
   .field input {
     width: 100%;
     padding: 12px;
@@ -89,6 +90,8 @@
     color: var(--text);
     font-size: 1rem;
   }
+  .manage-link { margin-top: 18px; font-size: 0.8rem; }
+  .manage-link a { color: var(--muted); }
 </style>
 </head>
 <body>
@@ -116,14 +119,14 @@
           <label for="dogName">Pet's name <span class="optional">(optional)</span></label>
           <input type="text" id="dogName" placeholder="Buddy">
         </div>
+        <div class="field">
+          <label for="password">Create a password</label>
+          <input type="password" id="password" placeholder="At least 8 characters" required minlength="8">
+          <div class="hint">You'll use this later to edit this tag's details.</div>
+        </div>
         <button type="submit" class="primary" id="registerBtn">Activate tag</button>
         <div class="error-text" id="registerError"></div>
       </form>
-    </div>
-
-    <div id="notFoundState" class="hidden">
-      <h1>🏷️ This tag isn't registered</h1>
-      <p>The owner hasn't set up their contact details for this tag. If you found a pet wearing it, please check for other ID or contact a local vet or shelter.</p>
     </div>
 
     <div id="errorState" class="hidden">
@@ -139,12 +142,14 @@
       <a id="callLink" class="btn secondary" href="#">Call the owner instead</a>
 
       <div class="status" id="status"></div>
+
+      <div class="manage-link"><a id="manageLink" href="#">Are you the owner? Manage this tag</a></div>
     </div>
 
   </div>
 
 <script>
-  const REGISTER_API = "https://nfc-pet-finder-api.webbalfie49.workers.dev/register";
+  const API_BASE = "https://nfc-pet-finder-api.webbalfie49.workers.dev";
 
   const params = new URLSearchParams(window.location.search);
   const tagId = params.get("id");
@@ -152,7 +157,6 @@
   const states = {
     loading: document.getElementById("loadingState"),
     register: document.getElementById("registerState"),
-    notFound: document.getElementById("notFoundState"),
     error: document.getElementById("errorState"),
     found: document.getElementById("foundState"),
   };
@@ -165,6 +169,7 @@
   const registerForm = document.getElementById("registerForm");
   const registerBtn = document.getElementById("registerBtn");
   const registerError = document.getElementById("registerError");
+  const manageLink = document.getElementById("manageLink");
 
   function show(state) {
     Object.values(states).forEach((el) => el.classList.add("hidden"));
@@ -182,6 +187,7 @@
       ? `Tap the button below to text ${data.ownerName} your location so they can come get ${data.dogName ? petName : "them"}.`
       : "Tap the button below to text the owner your location so they can come get them.";
     callLink.href = `tel:${data.ownerPhone}`;
+    manageLink.href = `manage.html?id=${encodeURIComponent(tagId)}`;
 
     sendBtn.onclick = () => {
       if (!("geolocation" in navigator)) {
@@ -241,19 +247,24 @@
     const ownerPhone = document.getElementById("ownerPhone").value.trim();
     const ownerName = document.getElementById("ownerName").value.trim();
     const dogName = document.getElementById("dogName").value.trim();
+    const password = document.getElementById("password").value;
 
     if (!ownerPhone) {
       registerError.textContent = "Phone number is required.";
+      return;
+    }
+    if (!password || password.length < 8) {
+      registerError.textContent = "Password must be at least 8 characters.";
       return;
     }
 
     registerBtn.disabled = true;
     registerBtn.textContent = "Activating...";
 
-    fetch(REGISTER_API, {
+    fetch(`${API_BASE}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tagId, ownerPhone, ownerName, dogName }),
+      body: JSON.stringify({ tagId, ownerPhone, ownerName, dogName, password }),
     })
       .then(async (res) => {
         const body = await res.json();
@@ -271,17 +282,17 @@
     show(states.error);
     errorText.textContent = "No valid tag ID was found in this link. Please check the QR code or NFC tag.";
   } else {
-    fetch(`data/${encodeURIComponent(tagId)}.json`, { cache: "no-store" })
+    fetch(`${API_BASE}/lookup?id=${encodeURIComponent(tagId)}`)
       .then((res) => {
-        if (res.status === 404) {
-          show(states.register);
-          return null;
-        }
         if (!res.ok) throw new Error("lookup failed");
         return res.json();
       })
       .then((data) => {
-        if (data) renderFound(data);
+        if (data.found) {
+          renderFound(data);
+        } else {
+          show(states.register);
+        }
       })
       .catch(() => {
         show(states.error);
