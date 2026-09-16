@@ -228,6 +228,7 @@
 
   function renderFound(data) {
     const petName = data.dogName || "this pet";
+    const petPhrase = data.dogName ? `your pet ${data.dogName}` : "your pet";
     petNameEl.textContent = petName;
     foundSubtext.textContent = data.ownerName
       ? `Tap the button below to text ${data.ownerName} your location so they can come get ${data.dogName ? petName : "them"}.`
@@ -238,7 +239,7 @@
     sendBtn.onclick = () => {
       if (!("geolocation" in navigator)) {
         statusEl.textContent = "Location not supported on this device — opening text without it.";
-        openSms(data.ownerPhone, `I found your pet ${petName}!`);
+        openSms(data.ownerPhone, `I found ${petPhrase}!`);
         return;
       }
 
@@ -249,7 +250,7 @@
         (pos) => {
           const { latitude, longitude } = pos.coords;
           const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
-          const message = `I found your pet ${petName}! Here is my location: ${mapsUrl}`;
+          const message = `I found ${petPhrase}! Here is my location: ${mapsUrl}`;
           statusEl.textContent = "Opening your messages app...";
           openSms(data.ownerPhone, message);
           sendBtn.disabled = false;
@@ -271,7 +272,7 @@
               reason = "Couldn't get your location.";
           }
           statusEl.textContent = `${reason} Opening text without it.`;
-          openSms(data.ownerPhone, `I found your pet ${petName}! (Could not share exact location — please call or reply for details.)`);
+          openSms(data.ownerPhone, `I found ${petPhrase}! (Could not share exact location — please call or reply for details.)`);
         },
         { enableHighAccuracy: true, timeout: 10000 }
       );
