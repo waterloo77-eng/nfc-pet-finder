@@ -4,126 +4,94 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pet Tag</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg-page: #FAF9F6;
-    --bg-subtle: #F1EFE9;
-    --ink: #24271F;
-    --ink-body: #3D4038;
-    --ink-muted: #5E6156;
-    --ink-faint: #63665C;
-    --ink-ghost: #6B6E64;
-    --line: #DCD9CF;
-    --line-soft: #E8E5DC;
-    --green: #1F6F5C;
-    --green-deep: #14503F;
-    --green-tint: #E7F0EC;
-    --on-green: #F7FBF9;
-    --orange: #C4611E;
-    --orange-tint: #FFF6EC;
-    --orange-tint-line: #F0DCC4;
-    --orange-deep: #A8641F;
-    --orange-ink: #4A3A26;
+    color-scheme: light dark;
+    --bg: #fafaf9;
+    --card: #ffffff;
+    --text: #1c1917;
+    --muted: #78716c;
+    --accent: #16a34a;
+    --accent-dark: #15803d;
+    --border: #e7e5e4;
+    --danger: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1917;
+      --card: #292524;
+      --text: #fafaf9;
+      --muted: #a8a29e;
+      --border: #44403c;
+    }
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     min-height: 100vh;
-    background: var(--bg-subtle);
-    color: var(--ink);
-    font-family: "Instrument Sans", Helvetica, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 28px 16px;
+    padding: 16px;
   }
-  .screen {
-    max-width: 430px;
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px;
+    max-width: 400px;
     width: 100%;
-    background: var(--bg-page);
-    border: 1px solid var(--line-soft);
-    border-radius: 24px;
-    box-shadow: 0 24px 48px -28px rgba(36, 39, 31, 0.4), 0 2px 8px rgba(36, 39, 31, 0.05);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    text-align: center;
   }
-  .hidden { display: none !important; }
-  .eyebrow {
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
+  h1 { font-size: 1.4rem; margin: 8px 0 4px; }
+  p { color: var(--muted); font-size: 0.95rem; line-height: 1.4; }
+  .pet-name { color: var(--text); font-weight: 600; }
+  button, .btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    margin-top: 16px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
   }
-  a { color: var(--green); text-decoration: none; }
-
-  /* ---- loading ---- */
-  #loadingState {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    padding: 22px;
-  }
+  .primary { background: var(--accent); color: #fff; }
+  .primary:active { background: var(--accent-dark); }
+  .secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .primary:disabled { opacity: 0.6; cursor: default; }
+  .status { font-size: 0.85rem; color: var(--muted); margin-top: 14px; min-height: 1.2em; }
+  .error-text { font-size: 0.85rem; color: var(--danger); margin-top: 10px; min-height: 1.2em; }
   .spinner {
-    width: 26px; height: 26px;
-    border: 3px solid var(--line-soft);
-    border-top-color: var(--green);
+    width: 28px; height: 28px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
     border-radius: 50%;
+    margin: 12px auto;
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* ---- neutral setup header (register + manage share this language) ---- */
-  .setup-header { padding: 40px 22px 0; }
-  .setup-header .eyebrow { margin-bottom: 10px; }
-  .setup-header h1 {
-    font-size: 23px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    margin: 0;
-    line-height: 1.2;
-  }
-  .setup-header p {
-    font-size: 14.5px;
-    line-height: 1.45;
-    color: var(--ink-muted);
-    margin: 8px 0 0;
-  }
-
-  /* ---- form fields ---- */
-  form { padding: 22px; display: flex; flex-direction: column; gap: 16px; }
-  .field { display: flex; flex-direction: column; gap: 8px; }
-  .field label {
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 10.5px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-  }
+  .hidden { display: none; }
+  .field { text-align: left; margin-top: 14px; }
+  .field label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+  .field .optional { font-weight: 400; color: var(--muted); }
+  .field .hint { font-weight: 400; color: var(--muted); font-size: 0.78rem; margin-top: 3px; }
   .field input {
     width: 100%;
-    padding: 14px 15px;
-    border-radius: 14px;
-    border: 1.5px solid var(--line);
-    background: var(--bg-page);
-    color: var(--ink);
-    font-family: inherit;
-    font-size: 15px;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 1rem;
   }
-  .field input::placeholder { color: var(--line); }
-  .field input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-  .field .hint { font-size: 13px; color: var(--ink-muted); line-height: 1.4; }
-
   .password-wrapper { position: relative; }
-  .password-wrapper input { padding-right: 44px; }
+  .password-wrapper input { padding-right: 42px; }
   .toggle-password {
     position: absolute;
     top: 50%;
@@ -131,161 +99,50 @@
     transform: translateY(-50%);
     width: auto;
     margin: 0;
-    padding: 8px;
+    padding: 6px;
     background: none;
     border: none;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--ink-faint);
+    color: var(--muted);
     cursor: pointer;
   }
   .toggle-password svg { display: block; }
   .toggle-password .icon-eye-off { display: none; }
   .toggle-password.is-visible .icon-eye { display: none; }
   .toggle-password.is-visible .icon-eye-off { display: block; }
-
-  /* ---- buttons ---- */
-  button { font-family: inherit; cursor: pointer; }
-  .btn-dark {
-    display: block;
-    width: 100%;
-    background: var(--ink);
-    color: var(--bg-page);
-    border: none;
-    border-radius: 15px;
-    padding: 15px;
-    text-align: center;
-    font-size: 15px;
-    font-weight: 600;
-    margin-top: 4px;
-  }
-  .btn-dark:active { background: #14150f; }
-  .btn-dark:disabled { opacity: 0.6; }
-
-  .btn-primary-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    background: var(--green);
-    color: var(--on-green);
-    border: none;
-    border-radius: 18px;
-    padding: 17px 20px;
-    text-align: left;
-    box-shadow: 0 10px 22px -12px rgba(31, 111, 92, 0.8);
-  }
-  .btn-primary-card:active { background: var(--green-deep); }
-  .btn-primary-card:disabled { opacity: 0.7; }
-  .btn-primary-card .label { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
-  .btn-primary-card .sub { font-size: 13px; opacity: 0.82; margin-top: 3px; }
-  .btn-primary-card .chevron {
-    flex: none;
-    width: 40px; height: 40px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.16);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 17px;
-  }
-
-  .btn-outline {
-    display: block;
-    width: 100%;
-    background: none;
-    border: 1.5px solid var(--line);
-    color: var(--ink);
-    border-radius: 16px;
-    padding: 14px;
-    text-align: center;
-    font-size: 14.5px;
-    font-weight: 600;
-  }
-  .btn-outline:active { background: var(--bg-subtle); }
-
-  .error-text { font-size: 13.5px; color: var(--orange-deep); margin-top: 2px; min-height: 1.2em; }
-  .status { font-size: 13.5px; color: var(--ink-muted); margin-top: 14px; min-height: 1.2em; line-height: 1.4; }
-
-  /* ---- tinted message cards ---- */
-  .tint-card {
-    margin: 22px;
-    padding: 16px 18px;
-    border-radius: 18px;
-  }
-  .tint-card.orange { background: var(--orange-tint); border: 1.5px solid var(--orange-tint-line); }
-  .tint-card .tint-eyebrow {
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 10.5px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-  .tint-card.orange .tint-eyebrow { color: var(--orange-deep); }
-  .tint-card p { font-size: 14.5px; line-height: 1.5; margin: 7px 0 0; }
-  .tint-card.orange p { color: var(--orange-ink); }
-
-  /* ---- alert banner (the one bold moment: a lost pet was just found) ---- */
-  .alert-banner { background: var(--orange); padding: 22px 22px 20px; color: var(--orange-tint); }
-  .alert-banner .eyebrow { color: var(--orange-tint); opacity: 0.85; }
-  .alert-banner h1 {
-    font-size: 26px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 1.15;
-    margin: 8px 0 0;
-  }
-  .alert-banner p { font-size: 15px; line-height: 1.45; margin: 8px 0 0; opacity: 0.92; }
-
-  .identity { padding: 22px 22px 0; }
-  .identity .pet-name { font-size: 32px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
-
-  .actions { padding: 18px 22px 0; display: flex; flex-direction: column; gap: 10px; }
-
-  .manage-link { padding: 20px 22px 0; text-align: center; font-size: 13.5px; }
-  .manage-link a { color: var(--ink-faint); }
-  .manage-link a:hover { color: var(--ink); }
-
-  .footer {
-    margin-top: auto;
-    padding: 26px 22px 30px;
-    text-align: center;
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 10.5px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--ink-ghost);
-  }
+  .manage-link { margin-top: 18px; font-size: 0.8rem; }
+  .manage-link a { color: var(--muted); }
 </style>
 </head>
 <body>
-  <div class="screen">
+  <div class="card">
 
     <div id="loadingState">
       <div class="spinner"></div>
-      <div class="eyebrow">Looking up tag</div>
+      <p>Looking up this tag...</p>
     </div>
 
     <div id="registerState" class="hidden">
-      <div class="setup-header">
-        <div class="eyebrow">Tag setup</div>
-        <h1>Set up this pet tag</h1>
-        <p>Add your details so a finder can reach you the moment this tag is scanned.</p>
-      </div>
+      <h1>🏷️ Set up this pet tag</h1>
+      <p>This tag hasn't been activated yet. Fill in your details so a finder can reach you.</p>
 
       <form id="registerForm">
         <div class="field">
-          <label for="ownerPhone">Phone number</label>
+          <label for="ownerPhone">Your phone number</label>
           <input type="tel" id="ownerPhone" placeholder="+44 7xxx xxxxxx" required>
         </div>
         <div class="field">
-          <label for="ownerName">Your name (optional)</label>
+          <label for="ownerName">Your name <span class="optional">(optional)</span></label>
           <input type="text" id="ownerName" placeholder="Jane Smith">
         </div>
         <div class="field">
-          <label for="dogName">Pet's name (optional)</label>
+          <label for="dogName">Pet's name <span class="optional">(optional)</span></label>
           <input type="text" id="dogName" placeholder="Buddy">
         </div>
         <div class="field">
-          <label for="password">Password</label>
+          <label for="password">Create a password</label>
           <div class="password-wrapper">
             <input type="password" id="password" placeholder="At least 8 characters" required minlength="8">
             <button type="button" class="toggle-password" data-target="password" aria-label="Show password">
@@ -295,45 +152,26 @@
           </div>
           <div class="hint">You'll use this later to edit this tag's details.</div>
         </div>
-        <button type="submit" class="btn-dark" id="registerBtn">Activate tag</button>
+        <button type="submit" class="primary" id="registerBtn">Activate tag</button>
         <div class="error-text" id="registerError"></div>
       </form>
     </div>
 
     <div id="errorState" class="hidden">
-      <div class="tint-card orange">
-        <div class="tint-eyebrow">Something went wrong</div>
-        <p id="errorText">Couldn't look up this tag right now. Please try again in a moment.</p>
-      </div>
+      <h1>⚠️ Something went wrong</h1>
+      <p id="errorText">Couldn't look up this tag right now. Please try again in a moment.</p>
     </div>
 
     <div id="foundState" class="hidden">
-      <div class="alert-banner">
-        <div class="eyebrow">Tag scanned</div>
-        <h1>This pet is lost.</h1>
-        <p>Thanks for stopping. The owner is waiting to hear from you.</p>
-      </div>
+      <h1>🐾 Thank you for finding <span class="pet-name" id="petName">this pet</span>!</h1>
+      <p id="foundSubtext">Tap the button below to text the owner your location so they can come get them.</p>
 
-      <div class="identity">
-        <div class="pet-name" id="petName">This pet</div>
-      </div>
+      <button id="sendBtn" class="primary">Send my location by text</button>
+      <a id="callLink" class="btn secondary" href="#">Call the owner instead</a>
 
-      <div class="actions">
-        <button id="sendBtn" class="btn-primary-card">
-          <span>
-            <span class="label">Send my location</span>
-            <span class="sub" id="sendSub">by text to the owner</span>
-          </span>
-          <span class="chevron" aria-hidden="true">&rsaquo;</span>
-        </button>
-        <a id="callLink" class="btn-outline" href="#">Call the owner instead</a>
-      </div>
-
-      <div class="status" id="status" style="padding: 0 22px;"></div>
+      <div class="status" id="status"></div>
 
       <div class="manage-link"><a id="manageLink" href="#">Are you the owner? Manage this tag</a></div>
-
-      <div class="footer">Pet Tag &middot; No app needed</div>
     </div>
 
   </div>
@@ -352,7 +190,7 @@
   };
   const errorText = document.getElementById("errorText");
   const petNameEl = document.getElementById("petName");
-  const sendSub = document.getElementById("sendSub");
+  const foundSubtext = document.getElementById("foundSubtext");
   const callLink = document.getElementById("callLink");
   const sendBtn = document.getElementById("sendBtn");
   const statusEl = document.getElementById("status");
@@ -381,19 +219,18 @@
   });
 
   function renderFound(data) {
-    const petName = data.dogName || "This pet";
+    const petName = data.dogName || "this pet";
     petNameEl.textContent = petName;
-    const who = data.ownerName || "the owner";
-    sendSub.textContent = `by text to ${who}`;
-    callLink.textContent = data.ownerName ? `Call ${data.ownerName} instead` : "Call the owner instead";
+    foundSubtext.textContent = data.ownerName
+      ? `Tap the button below to text ${data.ownerName} your location so they can come get ${data.dogName ? petName : "them"}.`
+      : "Tap the button below to text the owner your location so they can come get them.";
     callLink.href = `tel:${data.ownerPhone}`;
     manageLink.href = `manage.html?id=${encodeURIComponent(tagId)}`;
 
     sendBtn.onclick = () => {
-      const label = data.dogName || "your pet";
       if (!("geolocation" in navigator)) {
         statusEl.textContent = "Location not supported on this device — opening text without it.";
-        openSms(data.ownerPhone, `I found your pet ${label}!`);
+        openSms(data.ownerPhone, `I found your pet ${petName}!`);
         return;
       }
 
@@ -404,7 +241,7 @@
         (pos) => {
           const { latitude, longitude } = pos.coords;
           const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
-          const message = `I found your pet ${label}! Here is my location: ${mapsUrl}`;
+          const message = `I found your pet ${petName}! Here is my location: ${mapsUrl}`;
           statusEl.textContent = "Opening your messages app...";
           openSms(data.ownerPhone, message);
           sendBtn.disabled = false;
@@ -426,7 +263,7 @@
               reason = "Couldn't get your location.";
           }
           statusEl.textContent = `${reason} Opening text without it.`;
-          openSms(data.ownerPhone, `I found your pet ${label}! (Could not share exact location — please call or reply for details.)`);
+          openSms(data.ownerPhone, `I found your pet ${petName}! (Could not share exact location — please call or reply for details.)`);
         },
         { enableHighAccuracy: true, timeout: 10000 }
       );
