@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Found This Pet?</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fafaf9;
+    --card: #ffffff;
+    --text: #1c1917;
+    --muted: #78716c;
+    --accent: #16a34a;
+    --accent-dark: #15803d;
+    --border: #e7e5e4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1917;
+      --card: #292524;
+      --text: #fafaf9;
+      --muted: #a8a29e;
+      --border: #44403c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 16px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px;
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+  }
+  h1 { font-size: 1.4rem; margin: 8px 0 4px; }
+  p { color: var(--muted); font-size: 0.95rem; line-height: 1.4; }
+  .pet-name { color: var(--text); font-weight: 600; }
+  button, .btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    margin-top: 16px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .primary { background: var(--accent); color: #fff; }
+  .primary:active { background: var(--accent-dark); }
+  .secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .primary:disabled { opacity: 0.6; cursor: default; }
+  .status { font-size: 0.85rem; color: var(--muted); margin-top: 14px; min-height: 1.2em; }
+  .spinner {
+    width: 28px; height: 28px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    margin: 12px auto;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+  <div class="card">
+
+    <div id="loadingState">
+      <div class="spinner"></div>
+      <p>Looking up this tag...</p>
+    </div>
+
+    <div id="notFoundState" class="hidden">
+      <h1>🏷️ This tag isn't registered yet</h1>
+      <p>The owner hasn't set up their contact details for this tag. If you found a pet wearing it, please check for other ID or contact a local vet or shelter.</p>
+    </div>
+
+    <div id="errorState" class="hidden">
+      <h1>⚠️ Something went wrong</h1>
+      <p id="errorText">Couldn't look up this tag right now. Please try again in a moment.</p>
+    </div>
+
+    <div id="foundState" class="hidden">
+      <h1>🐾 Thank you for finding <span class="pet-name" id="petName">this pet</span>!</h1>
+      <p>Tap the button below to text the owner your location so they can come get them.</p>
+
+      <button id="sendBtn" class="primary">Send my location by text</button>
+      <a id="callLink" class="btn secondary" href="#">Call the owner instead</a>
+
+      <div class="status" id="status"></div>
+    </div>
+
+  </div>
+
+<script>
+  // Google Apps Script Web App endpoint that serves tag data as JSON.
+  // Replace with the deployed /exec URL.
+  const LOOKUP_API = "REPLACE_WITH_APPS_SCRIPT_URL";
+
+  const params = new URLSearchParams(window.location.search);
+  const tagId = params.get("id");
+
+  const loadingState = document.getElementById("loadingState");
+  const notFoundState = document.getElementById("notFoundState");
+  const errorState = document.getElementById("errorState");
+  const errorText = document.getElementById("errorText");
+  const foundState = document.getElementById("foundState");
+  const petNameEl = document.getElementById("petName");
+  const callLink = document.getElementById("callLink");
+  const sendBtn = document.getElementById("sendBtn");
+  const statusEl = document.getElementById("status");
+
+  function show(state) {
+    [loadingState, notFoundState, errorState, foundState].forEach(el => el.classList.add("hidden"));
+    state.classList.remove("hidden");
+  }
+
+  if (!tagId) {
+    show(errorState);
+    errorText.textContent = "No tag ID was found in this link. Please check the QR code or NFC tag.";
+  } else {
+    fetch(`${LOOKUP_API}?id=${encodeURIComponent(tagId)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!data || !data.found) {
+          show(notFoundState);
+          return;
+        }
+        const ownerNumber = data.ownerPhone; // expected in E.164 format, e.g. +447554617157
+        const petName = data.petName || "this pet";
+
+        petNameEl.textContent = petName;
+        callLink.href = `tel:${ownerNumber}`;
+
+        sendBtn.addEventListener("click", () => {
+          if (!("geolocation" in navigator)) {
+            statusEl.textContent = "Location not supported on this device — opening text without it.";
+            openSms(ownerNumber, `I found your pet ${petName}!`);
+            return;
+          }
+
+          statusEl.textContent = "Getting your location...";
+          sendBtn.disabled = true;
+
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const { latitude, longitude } = pos.coords;
+              const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
+              const message = `I found your pet ${petName}! Here is my location: ${mapsUrl}`;
+              statusEl.textContent = "Opening your messages app...";
+              openSms(ownerNumber, message);
+              sendBtn.disabled = false;
+            },
+            (err) => {
+              sendBtn.disabled = false;
+              let reason;
+              switch (err.code) {
+                case err.PERMISSION_DENIED:
+                  reason = "Location permission was denied. Enable location for this site in your browser settings to share your exact spot, or use Call instead.";
+                  break;
+                case err.POSITION_UNAVAILABLE:
+                  reason = "Your device couldn't determine a location right now (GPS/Location Services may be off).";
+                  break;
+                case err.TIMEOUT:
+                  reason = "Getting your location took too long. Try again, or use Call instead.";
+                  break;
+                default:
+                  reason = "Couldn't get your location.";
+              }
+              statusEl.textContent = `${reason} Opening text without it.`;
+              openSms(ownerNumber, `I found your pet ${petName}! (Could not share exact location — please call or reply for details.)`);
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+          );
+        });
+
+        show(foundState);
+      })
+      .catch(() => {
+        show(errorState);
+        errorText.textContent = "Couldn't reach the lookup service. Check your connection and try again.";
+      });
+  }
+
+  function openSms(ownerNumber, body) {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const sep = isIOS ? "&" : "?";
+    window.location.href = `sms:${ownerNumber}${sep}body=${encodeURIComponent(body)}`;
+  }
+</script>
+</body>
+</html>
