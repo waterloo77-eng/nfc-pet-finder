@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manage Pet Tag</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fafaf9;
+    --card: #ffffff;
+    --text: #1c1917;
+    --muted: #78716c;
+    --accent: #16a34a;
+    --accent-dark: #15803d;
+    --border: #e7e5e4;
+    --danger: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1917;
+      --card: #292524;
+      --text: #fafaf9;
+      --muted: #a8a29e;
+      --border: #44403c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 16px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px;
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+  }
+  h1 { font-size: 1.4rem; margin: 8px 0 4px; }
+  p { color: var(--muted); font-size: 0.95rem; line-height: 1.4; }
+  button {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    margin-top: 16px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .primary { background: var(--accent); color: #fff; }
+  .primary:active { background: var(--accent-dark); }
+  .primary:disabled { opacity: 0.6; cursor: default; }
+  .error-text { font-size: 0.85rem; color: var(--danger); margin-top: 10px; min-height: 1.2em; }
+  .success-text { font-size: 0.85rem; color: var(--accent); margin-top: 10px; min-height: 1.2em; }
+  .spinner {
+    width: 28px; height: 28px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    margin: 12px auto;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hidden { display: none; }
+  .field { text-align: left; margin-top: 14px; }
+  .field label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+  .field .optional { font-weight: 400; color: var(--muted); }
+  .field input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 1rem;
+  }
+  .back-link { margin-top: 18px; font-size: 0.8rem; }
+  .back-link a { color: var(--muted); }
+</style>
+</head>
+<body>
+  <div class="card">
+
+    <div id="loadingState">
+      <div class="spinner"></div>
+      <p>Loading...</p>
+    </div>
+
+    <div id="errorState" class="hidden">
+      <h1>⚠️ Something went wrong</h1>
+      <p id="errorText">Couldn't load this tag right now.</p>
+    </div>
+
+    <div id="loginState" class="hidden">
+      <h1>🔒 Manage this tag</h1>
+      <p>Enter the password you created when you registered this tag.</p>
+      <form id="loginForm">
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" required>
+        </div>
+        <button type="submit" class="primary" id="loginBtn">Log in</button>
+        <div class="error-text" id="loginError"></div>
+      </form>
+      <div class="back-link"><a id="backLink1" href="#">Back to tag page</a></div>
+    </div>
+
+    <div id="editState" class="hidden">
+      <h1>✏️ Edit tag details</h1>
+      <p>These details are shown to whoever scans this tag.</p>
+      <form id="editForm">
+        <div class="field">
+          <label for="ownerPhone">Your phone number</label>
+          <input type="tel" id="ownerPhone" required>
+        </div>
+        <div class="field">
+          <label for="ownerName">Your name <span class="optional">(optional)</span></label>
+          <input type="text" id="ownerName">
+        </div>
+        <div class="field">
+          <label for="dogName">Pet's name <span class="optional">(optional)</span></label>
+          <input type="text" id="dogName">
+        </div>
+        <button type="submit" class="primary" id="saveBtn">Save changes</button>
+        <div class="error-text" id="editError"></div>
+        <div class="success-text" id="editSuccess"></div>
+      </form>
+      <div class="back-link"><a id="backLink2" href="#">Back to tag page</a></div>
+    </div>
+
+  </div>
+
+<script>
+  const API_BASE = "https://nfc-pet-finder-api.webbalfie49.workers.dev";
+
+  const params = new URLSearchParams(window.location.search);
+  const tagId = params.get("id");
+
+  const states = {
+    loading: document.getElementById("loadingState"),
+    error: document.getElementById("errorState"),
+    login: document.getElementById("loginState"),
+    edit: document.getElementById("editState"),
+  };
+  const errorText = document.getElementById("errorText");
+  const loginForm = document.getElementById("loginForm");
+  const loginBtn = document.getElementById("loginBtn");
+  const loginError = document.getElementById("loginError");
+  const editForm = document.getElementById("editForm");
+  const saveBtn = document.getElementById("saveBtn");
+  const editError = document.getElementById("editError");
+  const editSuccess = document.getElementById("editSuccess");
+  const ownerPhoneInput = document.getElementById("ownerPhone");
+  const ownerNameInput = document.getElementById("ownerName");
+  const dogNameInput = document.getElementById("dogName");
+
+  document.getElementById("backLink1").href = `index.html?id=${encodeURIComponent(tagId || "")}`;
+  document.getElementById("backLink2").href = `index.html?id=${encodeURIComponent(tagId || "")}`;
+
+  function show(state) {
+    Object.values(states).forEach((el) => el.classList.add("hidden"));
+    state.classList.remove("hidden");
+  }
+
+  function isValidTagId(id) {
+    return typeof id === "string" && /^[A-Za-z0-9_-]{3,40}$/.test(id);
+  }
+
+  let sessionToken = null;
+
+  if (!isValidTagId(tagId)) {
+    show(states.error);
+    errorText.textContent = "No valid tag ID was found in this link.";
+  } else {
+    show(states.login);
+  }
+
+  loginForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    loginError.textContent = "";
+    const password = document.getElementById("password").value;
+
+    loginBtn.disabled = true;
+    loginBtn.textContent = "Logging in...";
+
+    fetch(`${API_BASE}/manage/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tagId, password }),
+    })
+      .then(async (res) => {
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || "Login failed");
+        sessionToken = body.token;
+        return fetch(`${API_BASE}/lookup?id=${encodeURIComponent(tagId)}`).then((r) => r.json());
+      })
+      .then((data) => {
+        if (data.found) {
+          ownerPhoneInput.value = data.ownerPhone || "";
+          ownerNameInput.value = data.ownerName || "";
+          dogNameInput.value = data.dogName || "";
+        }
+        show(states.edit);
+      })
+      .catch((err) => {
+        loginBtn.disabled = false;
+        loginBtn.textContent = "Log in";
+        loginError.textContent = err.message || "Something went wrong. Please try again.";
+      });
+  });
+
+  editForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    editError.textContent = "";
+    editSuccess.textContent = "";
+
+    const ownerPhone = ownerPhoneInput.value.trim();
+    const ownerName = ownerNameInput.value.trim();
+    const dogName = dogNameInput.value.trim();
+
+    if (!ownerPhone) {
+      editError.textContent = "Phone number is required.";
+      return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving...";
+
+    fetch(`${API_BASE}/manage/update`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tagId, token: sessionToken, ownerPhone, ownerName, dogName }),
+    })
+      .then(async (res) => {
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || "Update failed");
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save changes";
+        editSuccess.textContent = "Saved! The public tag page is now up to date.";
+      })
+      .catch((err) => {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save changes";
+        editError.textContent = err.message || "Something went wrong. Please try again.";
+        if (/session|log in/i.test(err.message || "")) {
+          setTimeout(() => show(states.login), 1500);
+        }
+      });
+  });
+</script>
+</body>
+</html>
