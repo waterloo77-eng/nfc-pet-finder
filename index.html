@@ -131,7 +131,7 @@
       <form id="registerForm">
         <div class="field">
           <label for="ownerPhone">Your phone number</label>
-          <input type="tel" id="ownerPhone" placeholder="+44 7xxx xxxxxx" required>
+          <input type="tel" id="ownerPhone" placeholder="07xxx xxxxxx" required>
         </div>
         <div class="field">
           <label for="ownerName">Your name <span class="optional">(optional)</span></label>
@@ -208,6 +208,14 @@
     return typeof id === "string" && /^[A-Za-z0-9_-]{3,40}$/.test(id);
   }
 
+  function normalizePhone(raw) {
+    let p = raw.trim().replace(/[\s()-]/g, "");
+    if (p.startsWith("+")) return p;
+    if (p.startsWith("0")) return "+44" + p.slice(1);
+    if (p.startsWith("44")) return "+" + p;
+    return p;
+  }
+
   document.querySelectorAll(".toggle-password").forEach((btn) => {
     btn.addEventListener("click", () => {
       const input = document.getElementById(btn.dataset.target);
@@ -282,7 +290,7 @@
     e.preventDefault();
     registerError.textContent = "";
 
-    const ownerPhone = document.getElementById("ownerPhone").value.trim();
+    const ownerPhone = normalizePhone(document.getElementById("ownerPhone").value);
     const ownerName = document.getElementById("ownerName").value.trim();
     const dogName = document.getElementById("dogName").value.trim();
     const password = document.getElementById("password").value;
