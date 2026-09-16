@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Found This Pet?</title>
+<title>Pet Tag</title>
 <style>
   :root {
     color-scheme: light dark;
@@ -14,6 +14,7 @@
     --accent: #16a34a;
     --accent-dark: #15803d;
     --border: #e7e5e4;
+    --danger: #dc2626;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -65,6 +66,7 @@
   .secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
   .primary:disabled { opacity: 0.6; cursor: default; }
   .status { font-size: 0.85rem; color: var(--muted); margin-top: 14px; min-height: 1.2em; }
+  .error-text { font-size: 0.85rem; color: var(--danger); margin-top: 10px; min-height: 1.2em; }
   .spinner {
     width: 28px; height: 28px;
     border: 3px solid var(--border);
@@ -75,6 +77,18 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   .hidden { display: none; }
+  .field { text-align: left; margin-top: 14px; }
+  .field label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+  .field .optional { font-weight: 400; color: var(--muted); }
+  .field input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 1rem;
+  }
 </style>
 </head>
 <body>
@@ -85,8 +99,30 @@
       <p>Looking up this tag...</p>
     </div>
 
+    <div id="registerState" class="hidden">
+      <h1>🏷️ Set up this pet tag</h1>
+      <p>This tag hasn't been activated yet. Fill in your details so a finder can reach you.</p>
+
+      <form id="registerForm">
+        <div class="field">
+          <label for="ownerPhone">Your phone number</label>
+          <input type="tel" id="ownerPhone" placeholder="+44 7xxx xxxxxx" required>
+        </div>
+        <div class="field">
+          <label for="ownerName">Your name <span class="optional">(optional)</span></label>
+          <input type="text" id="ownerName" placeholder="Jane Smith">
+        </div>
+        <div class="field">
+          <label for="dogName">Pet's name <span class="optional">(optional)</span></label>
+          <input type="text" id="dogName" placeholder="Buddy">
+        </div>
+        <button type="submit" class="primary" id="registerBtn">Activate tag</button>
+        <div class="error-text" id="registerError"></div>
+      </form>
+    </div>
+
     <div id="notFoundState" class="hidden">
-      <h1>🏷️ This tag isn't registered yet</h1>
+      <h1>🏷️ This tag isn't registered</h1>
       <p>The owner hasn't set up their contact details for this tag. If you found a pet wearing it, please check for other ID or contact a local vet or shelter.</p>
     </div>
 
@@ -97,7 +133,7 @@
 
     <div id="foundState" class="hidden">
       <h1>🐾 Thank you for finding <span class="pet-name" id="petName">this pet</span>!</h1>
-      <p>Tap the button below to text the owner your location so they can come get them.</p>
+      <p id="foundSubtext">Tap the button below to text the owner your location so they can come get them.</p>
 
       <button id="sendBtn" class="primary">Send my location by text</button>
       <a id="callLink" class="btn secondary" href="#">Call the owner instead</a>
@@ -108,99 +144,149 @@
   </div>
 
 <script>
-  // Google Apps Script Web App endpoint that serves tag data as JSON.
-  // Replace with the deployed /exec URL.
-  const LOOKUP_API = "REPLACE_WITH_APPS_SCRIPT_URL";
+  const REGISTER_API = "https://nfc-pet-finder-api.webbalfie49.workers.dev/register";
 
   const params = new URLSearchParams(window.location.search);
   const tagId = params.get("id");
 
-  const loadingState = document.getElementById("loadingState");
-  const notFoundState = document.getElementById("notFoundState");
-  const errorState = document.getElementById("errorState");
+  const states = {
+    loading: document.getElementById("loadingState"),
+    register: document.getElementById("registerState"),
+    notFound: document.getElementById("notFoundState"),
+    error: document.getElementById("errorState"),
+    found: document.getElementById("foundState"),
+  };
   const errorText = document.getElementById("errorText");
-  const foundState = document.getElementById("foundState");
   const petNameEl = document.getElementById("petName");
+  const foundSubtext = document.getElementById("foundSubtext");
   const callLink = document.getElementById("callLink");
   const sendBtn = document.getElementById("sendBtn");
   const statusEl = document.getElementById("status");
+  const registerForm = document.getElementById("registerForm");
+  const registerBtn = document.getElementById("registerBtn");
+  const registerError = document.getElementById("registerError");
 
   function show(state) {
-    [loadingState, notFoundState, errorState, foundState].forEach(el => el.classList.add("hidden"));
+    Object.values(states).forEach((el) => el.classList.add("hidden"));
     state.classList.remove("hidden");
   }
 
-  if (!tagId) {
-    show(errorState);
-    errorText.textContent = "No tag ID was found in this link. Please check the QR code or NFC tag.";
-  } else {
-    fetch(`${LOOKUP_API}?id=${encodeURIComponent(tagId)}`)
-      .then(res => res.json())
-      .then(data => {
-        if (!data || !data.found) {
-          show(notFoundState);
-          return;
-        }
-        const ownerNumber = data.ownerPhone; // expected in E.164 format, e.g. +447554617157
-        const petName = data.petName || "this pet";
+  function isValidTagId(id) {
+    return typeof id === "string" && /^[A-Za-z0-9_-]{3,40}$/.test(id);
+  }
 
-        petNameEl.textContent = petName;
-        callLink.href = `tel:${ownerNumber}`;
+  function renderFound(data) {
+    const petName = data.dogName || "this pet";
+    petNameEl.textContent = petName;
+    foundSubtext.textContent = data.ownerName
+      ? `Tap the button below to text ${data.ownerName} your location so they can come get ${data.dogName ? petName : "them"}.`
+      : "Tap the button below to text the owner your location so they can come get them.";
+    callLink.href = `tel:${data.ownerPhone}`;
 
-        sendBtn.addEventListener("click", () => {
-          if (!("geolocation" in navigator)) {
-            statusEl.textContent = "Location not supported on this device — opening text without it.";
-            openSms(ownerNumber, `I found your pet ${petName}!`);
-            return;
+    sendBtn.onclick = () => {
+      if (!("geolocation" in navigator)) {
+        statusEl.textContent = "Location not supported on this device — opening text without it.";
+        openSms(data.ownerPhone, `I found your pet ${petName}!`);
+        return;
+      }
+
+      statusEl.textContent = "Getting your location...";
+      sendBtn.disabled = true;
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
+          const message = `I found your pet ${petName}! Here is my location: ${mapsUrl}`;
+          statusEl.textContent = "Opening your messages app...";
+          openSms(data.ownerPhone, message);
+          sendBtn.disabled = false;
+        },
+        (err) => {
+          sendBtn.disabled = false;
+          let reason;
+          switch (err.code) {
+            case err.PERMISSION_DENIED:
+              reason = "Location permission was denied. Enable location for this site in your browser settings to share your exact spot, or use Call instead.";
+              break;
+            case err.POSITION_UNAVAILABLE:
+              reason = "Your device couldn't determine a location right now (GPS/Location Services may be off).";
+              break;
+            case err.TIMEOUT:
+              reason = "Getting your location took too long. Try again, or use Call instead.";
+              break;
+            default:
+              reason = "Couldn't get your location.";
           }
+          statusEl.textContent = `${reason} Opening text without it.`;
+          openSms(data.ownerPhone, `I found your pet ${petName}! (Could not share exact location — please call or reply for details.)`);
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    };
 
-          statusEl.textContent = "Getting your location...";
-          sendBtn.disabled = true;
-
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              const { latitude, longitude } = pos.coords;
-              const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
-              const message = `I found your pet ${petName}! Here is my location: ${mapsUrl}`;
-              statusEl.textContent = "Opening your messages app...";
-              openSms(ownerNumber, message);
-              sendBtn.disabled = false;
-            },
-            (err) => {
-              sendBtn.disabled = false;
-              let reason;
-              switch (err.code) {
-                case err.PERMISSION_DENIED:
-                  reason = "Location permission was denied. Enable location for this site in your browser settings to share your exact spot, or use Call instead.";
-                  break;
-                case err.POSITION_UNAVAILABLE:
-                  reason = "Your device couldn't determine a location right now (GPS/Location Services may be off).";
-                  break;
-                case err.TIMEOUT:
-                  reason = "Getting your location took too long. Try again, or use Call instead.";
-                  break;
-                default:
-                  reason = "Couldn't get your location.";
-              }
-              statusEl.textContent = `${reason} Opening text without it.`;
-              openSms(ownerNumber, `I found your pet ${petName}! (Could not share exact location — please call or reply for details.)`);
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-          );
-        });
-
-        show(foundState);
-      })
-      .catch(() => {
-        show(errorState);
-        errorText.textContent = "Couldn't reach the lookup service. Check your connection and try again.";
-      });
+    show(states.found);
   }
 
   function openSms(ownerNumber, body) {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const sep = isIOS ? "&" : "?";
     window.location.href = `sms:${ownerNumber}${sep}body=${encodeURIComponent(body)}`;
+  }
+
+  registerForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    registerError.textContent = "";
+
+    const ownerPhone = document.getElementById("ownerPhone").value.trim();
+    const ownerName = document.getElementById("ownerName").value.trim();
+    const dogName = document.getElementById("dogName").value.trim();
+
+    if (!ownerPhone) {
+      registerError.textContent = "Phone number is required.";
+      return;
+    }
+
+    registerBtn.disabled = true;
+    registerBtn.textContent = "Activating...";
+
+    fetch(REGISTER_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tagId, ownerPhone, ownerName, dogName }),
+    })
+      .then(async (res) => {
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || "Registration failed");
+        renderFound(body.data);
+      })
+      .catch((err) => {
+        registerBtn.disabled = false;
+        registerBtn.textContent = "Activate tag";
+        registerError.textContent = err.message || "Something went wrong. Please try again.";
+      });
+  });
+
+  if (!isValidTagId(tagId)) {
+    show(states.error);
+    errorText.textContent = "No valid tag ID was found in this link. Please check the QR code or NFC tag.";
+  } else {
+    fetch(`data/${encodeURIComponent(tagId)}.json`, { cache: "no-store" })
+      .then((res) => {
+        if (res.status === 404) {
+          show(states.register);
+          return null;
+        }
+        if (!res.ok) throw new Error("lookup failed");
+        return res.json();
+      })
+      .then((data) => {
+        if (data) renderFound(data);
+      })
+      .catch(() => {
+        show(states.error);
+        errorText.textContent = "Couldn't look up this tag right now. Check your connection and try again.";
+      });
   }
 </script>
 </body>
