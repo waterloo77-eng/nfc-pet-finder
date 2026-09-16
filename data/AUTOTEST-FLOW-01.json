@@ -1,8 +1,8 @@
 {
   "tagId": "AUTOTEST-FLOW-01",
-  "ownerPhone": "+447700900111",
-  "ownerName": "Alice",
+  "ownerPhone": "+447700900222",
+  "ownerName": "Alice Updated",
   "dogName": "Rex",
   "registeredAt": "2026-09-16T18:25:32.057Z",
-  "updatedAt": null
+  "updatedAt": "2026-09-16T18:25:34.706Z"
 }
